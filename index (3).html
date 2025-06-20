@@ -1,0 +1,87 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Mapa de Stock de Coches</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    #map { height: 100vh; width: 100%; }
+    .popup-content {
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .marca-logo {
+      display: flex;
+      align-items: center;
+      margin-top: 8px;
+      margin-bottom: 4px;
+    }
+    .marca-logo img {
+      width: 24px;
+      height: 24px;
+      margin-right: 8px;
+    }
+    .marca-separator {
+      border-top: 1px solid #ccc;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+const mapa = L.map('map').setView([48.8566, 2.3522], 5); // Centrado en Europa
+
+// OpenStreetMap estándar (con nombres en español según idioma del navegador)
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap contributors',
+  detectRetina: true
+}).addTo(mapa);
+
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRDUK7BcfxUVqkOvxeWKF7gKxL4G95MwQy1zssUOnXP1O5N1ubX9uaoUGlgkSXAojLuvYGafcSZ3LsX/pub?gid=0&single=true&output=csv';
+
+const coordenadas = {
+  "MADRID": [40.4168, -3.7038],
+  "LYON": [45.75, 4.85],
+  "BERLIN": [52.52, 13.405]
+};
+
+fetch(CSV_URL)
+  .then(response => response.text())
+  .then(csvText => {
+    const rows = csvText.trim().split('\n').map(row => row.split(','));
+    const headers = rows.shift();
+    const data = rows.map(row => Object.fromEntries(headers.map((h, i) => [h.trim(), row[i].trim()])));
+
+    const provincias = [...new Set(data.map(d => d.PROVINCIA.toUpperCase()))];
+
+    provincias.forEach((provincia) => {
+      const coords = coordenadas[provincia];
+      if (!coords) return;
+
+      const datosProvincia = data.filter(d => d.PROVINCIA.toUpperCase() === provincia);
+      let html = `<div class='popup-content'><strong>${provincia}</strong>`;
+      const marcas = [...new Set(datosProvincia.map(d => d.MARCA))];
+
+      marcas.forEach((marca) => {
+        const modelos = datosProvincia.filter(d => d.MARCA === marca);
+        html += `<div class='marca-separator'></div>`;
+        html += `<div class='marca-logo'><img src="${modelos[0]["LOGO"]}" alt="logo"> <strong>${marca}</strong></div><ul>`;
+        modelos.forEach(m => {
+          html += `<li>${m.MODELO} – ${m.STOCK} unidades</li>`;
+        });
+        html += `</ul>`;
+      });
+
+      html += `</div>`;
+      L.marker(coords).addTo(mapa).bindPopup(html);
+    });
+  });
+</script>
+</body>
+</html>
